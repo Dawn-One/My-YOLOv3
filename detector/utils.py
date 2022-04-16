@@ -21,14 +21,14 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
 
     @parameters:
     @prediction: our output feature map
-    @inp_dim: input image dimension
+    @inp_dim: input image's height
     @anchors: num_classes
     @[optional] CUDA flag
 
     """
     batch_size = prediction.size(0)
-    stride = inp_dim // prediction.size(2)      # ???
-    grid_size = inp_dim // stride
+    stride = inp_dim // prediction.size(2)
+    grid_size = prediction.size(2)
     bbox_attrs = 5 + num_classes
     num_anchors = len(anchors)
 
@@ -38,9 +38,9 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
 
     anchors = [(anchor[0] / stride, anchor[1] / stride) for anchor in anchors]
 
-    prediction[:, :, 0] = torch.sigmoid(prediction[:, :, 0])
-    prediction[:, :, 1] = torch.sigmoid(prediction[:, :, 1])
-    prediction[:, :, 4] = torch.sigmoid(prediction[:, :, 4])
+    prediction[:, :, 0] = torch.sigmoid(prediction[:, :, 0])    # b_x
+    prediction[:, :, 1] = torch.sigmoid(prediction[:, :, 1])    # b_y
+    prediction[:, :, 4] = torch.sigmoid(prediction[:, :, 4])    # score
 
     # Add the center offsets
     grid = np.arange(grid_size)
@@ -56,3 +56,16 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
     x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, num_anchors).view(-1,2).unsqueeze(0)
 
     prediction[:,:,:2] += x_y_offset
+
+    #log space transform height and the width
+    anchors = torch.FloatTensor(anchors)
+
+    if CUDA:
+        anchors = anchors.cuda()
+
+    anchors = anchors.repeat(grid_size*grid_size, 1).unsqueeze(0)
+    prediction[:,:,2:4] = torch.exp(prediction[:,:,2:4])*anchors
+
+    prediction[:, :, 5: 5+num_classes] = torch.sigmoid(prediction[:, :, 5: 5+num_classes])
+
+    return prediction
