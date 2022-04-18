@@ -7,7 +7,7 @@
 """
 
 from __future__ import division
-from utils import *
+from .utils import *
 
 import numpy as np
 import torch
@@ -289,8 +289,8 @@ def get_test():
     return img_
 
 
-model = Darknet()
-model.load_weights()
+# model = Darknet()
+# model.load_weights()
 
 
 
