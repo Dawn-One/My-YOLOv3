@@ -68,7 +68,7 @@ class Darknet(nn.Module):
                 numClass = int(module['classes'])
 
                 x = x.data
-                x = predict_transfrom(x, inp_dim=inp_dim, num_classes=numClass, anchors=anchors, CUDA=True)
+                x = predict_transfrom(x, inp_dim=inp_dim, num_classes=numClass, anchors=anchors, CUDA=False)
                 
                 if not write:
                     detection = x
