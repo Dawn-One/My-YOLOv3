@@ -69,12 +69,12 @@ def prep_image(img, inp_dim):
     
     """
     img = cv2.resize(img, (inp_dim, inp_dim))
-    img = img[:, :, : :-1].transpose((2, 0, 1)).copy()
+    img = img[:, :, : :-1].transpose((2, 0, 1)).copy()  # BGR->RGB || 416*416*3 -> 3*416*416
     img = torch.from_numpy(img).float().div(255.0).unsqueeze(0)
 
     return img
 
-def write(x, result, color):
+def write_(x, result, color):
     c1 = tuple(x[1: 3].int())
     c2 = tuple(x[3: 5].int())
     img = result[int(x[0])]
@@ -173,7 +173,7 @@ for idx, batch in enumerate(im_batches):
             print("----------------------------------------------------------")
         continue
 
-    prediction[:,0] += idx * batch_size    #transform the atribute from index in batch to index in imlist 
+    prediction[:, 0] += idx * batch_size    #transform the atribute from index in batch to index in imlist 
 
     if not write:                      #If we have't initialised output
         output = prediction  
@@ -191,10 +191,9 @@ for idx, batch in enumerate(im_batches):
     if CUDA:
         torch.cuda.synchronize()
     
-im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
+# im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
 
 scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
-
 
 output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2
 output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2
@@ -202,14 +201,15 @@ output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2
 output[:, 1: 5] /= scaling_factor
 
 for i in range(output.shape[0]):
-    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[i,0])
-    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[i,1])
+    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[0,0])
+    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[0,1])
 
 color_load = time.time()
-colors = pkl.load('./pallete', 'rb')
+fp = open('./pallete', 'rb')
+colors = pkl.load(fp)
 draw = time.time()
 
-list(map(lambda x: write(x, loaded_ims), output))
+list(map(lambda x,: write_(x, loaded_ims[0], color=colors[1]), output))
 det_names = pd.Series(imlist).apply(lambda x: "{}/det_{}".format(args.det,x.split("/")[-1]))
 list(map(cv2.imwrite, det_names, loaded_ims))
 end = time.time()

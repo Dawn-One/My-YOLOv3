@@ -49,12 +49,11 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
 
     x_offset = torch.FloatTensor(a).view(-1, 1)
     y_offset = torch.FloatTensor(b).view(-1, 1)
-
-    if CUDA:
-        x_offset = x_offset.cuda()
-        y_offset = y_offset.cuda()
     
     x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, num_anchors).view(-1,2).unsqueeze(0)
+
+    if CUDA:
+        x_y_offset = x_y_offset.cuda()
 
     prediction[:,:,:2] += x_y_offset
 
@@ -152,6 +151,17 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
                 non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
                 image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
 
+                batch_ind = image_pred_class.new_empty(image_pred_class.size(0), 1).fill_(idx)
+                seq = (batch_ind, image_pred_class)
+
+                if not write:
+                    output = torch.cat(seq, 1)
+                    write = True
+                else:
+                    out = torch.cat(seq, 1)
+                    output = torch.cat((output, out))
+
+                return output
 
 def unique(tensor: torch.Tensor):
     tensor_np = tensor.cpu().numpy()
