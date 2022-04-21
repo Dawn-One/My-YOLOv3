@@ -62,19 +62,6 @@ def load_classes():
 
     return names
 
-def prep_image(img, inp_dim):
-    """
-    Prepare image for inputting to the neural network. 
-    Returns a Variable 
-    
-    """
-    img = (letterbox_image(img, (inp_dim, inp_dim)))
-    img = cv2.resize(img, (inp_dim, inp_dim))
-    img = img[:, :, : :-1].transpose((2, 0, 1)).copy()  # BGR->RGB || 416*416*3 -> 3*416*416
-    img = torch.from_numpy(img).float().div(255.0).unsqueeze(0)
-
-    return img
-
 def write_(x, result, colors):
     c1 = tuple(x[1: 3].int())   # x and y
     c2 = tuple(x[3: 5].int())   # bx and by

@@ -219,3 +219,16 @@ def letterbox_image(img, inp_dim):
     canvas[(h-new_h)//2: (h-new_h)//2 + new_h, (w-new_w)//2: (w-new_w)//2 + new_w,  :] = resized_image
     
     return canvas
+
+def prep_image(img, inp_dim):
+    """
+    Prepare image for inputting to the neural network. 
+    Returns a Variable 
+    
+    """
+    img = (letterbox_image(img, (inp_dim, inp_dim)))
+    img = cv2.resize(img, (inp_dim, inp_dim))
+    img = img[:, :, : :-1].transpose((2, 0, 1)).copy()  # BGR->RGB || 416*416*3 -> 3*416*416
+    img = torch.from_numpy(img).float().div(255.0).unsqueeze(0)
+
+    return img
