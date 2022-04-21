@@ -6,7 +6,6 @@
 """
 
 from __future__ import division
-from matplotlib import image
 
 import torch
 import torch.nn as nn
@@ -69,6 +68,8 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
 
     prediction[:, :, 5: 5+num_classes] = torch.sigmoid(prediction[:, :, 5: 5+num_classes])
 
+    prediction[:, :, :4] *= stride
+
     return prediction
 
 def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.4):
@@ -91,9 +92,9 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
     # to (top-left corner x, top-left corner y, right-bottom corner x, right-bottom corner y).
     box_corner = prediction.new(prediction.shape)
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
-    box_corner[:, :, 1] = prediction[:, :, 0] - prediction[:, :, 3] / 2
+    box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
     box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2
-    box_corner[:, :, 3] = prediction[:, :, 0] + prediction[:, :, 3] / 2
+    box_corner[:, :, 3] = prediction[:, :, 1] + prediction[:, :, 3] / 2
     prediction[:, :, :4] = box_corner[:, :, :4]
 
     batch_size = prediction.size(0)
@@ -152,7 +153,7 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
                 non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
                 image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
 
-            batch_ind = image_pred_class.new_empty(image_pred_class.size(0), 1).fill_(ind)
+            batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)
             seq = (batch_ind, image_pred_class)
 
             if not write:
@@ -161,8 +162,10 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
             else:
                 out = torch.cat(seq, 1)
                 output = torch.cat((output, out))
-
+    try:
         return output
+    except:
+        return 0
 
 def unique(tensor: torch.Tensor):
     tensor_np = tensor.cpu().numpy()
@@ -180,7 +183,7 @@ def bbox_iou(box1, box2):
     
     """
     b1_x1, b1_y1, b1_x2, b1_y2 = box1[:, 0], box1[:, 1], box1[:, 2], box1[:, 3]
-    b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 2], box2[:, 3], box2[:, 3]
+    b2_x1, b2_y1, b2_x2, b2_y2 = box2[:, 0], box2[:, 1], box2[:, 2], box2[:, 3]
 
     # get the corrdinates of the intersection rectangle
     inter_rect_x1 =  torch.max(b1_x1, b2_x1)

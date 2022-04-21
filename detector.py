@@ -68,18 +68,20 @@ def prep_image(img, inp_dim):
     Returns a Variable 
     
     """
+    img = (letterbox_image(img, (inp_dim, inp_dim)))
     img = cv2.resize(img, (inp_dim, inp_dim))
     img = img[:, :, : :-1].transpose((2, 0, 1)).copy()  # BGR->RGB || 416*416*3 -> 3*416*416
     img = torch.from_numpy(img).float().div(255.0).unsqueeze(0)
 
     return img
 
-def write_(x, result, color):
+def write_(x, result, colors):
     c1 = tuple(x[1: 3].int())   # x and y
     c2 = tuple(x[3: 5].int())   # bx and by
     img = result[int(x[0])]     # define the image
     cls = int(x[-1])            # define the classes
-    label = "{0}".format(classes[cls])      
+    label = "{0}".format(classes[cls])
+    color = random.choice(colors)      
     cv2.rectangle(img, c1, c2, color, 1)
     t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
     c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
@@ -120,7 +122,7 @@ read_dir = time.time()
 
 # imlist: a list consist of images' path
 try:
-    imlist = [osp.join(osp.realpath('.'), image, img) for img in os.listdir(images)]
+    imlist = [osp.join(osp.realpath('.'), images, img) for img in os.listdir(images)]
 except NotADirectoryError:
     imlist = []
     imlist.append(osp.join(osp.realpath('.'), images))
@@ -161,7 +163,7 @@ for idx, batch in enumerate(im_batches):
     if CUDA:
         batch = batch.cuda()
     
-    prediction = model(Variable(batch, requires_grad=False), CUDA)
+    prediction = model(Variable(batch), CUDA)
     prediction = write_results(prediction, confidence, num_classes, num_thesh)
 
     end = time.time()
@@ -192,25 +194,25 @@ for idx, batch in enumerate(im_batches):
     if CUDA:
         torch.cuda.synchronize()
     
-# im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
+im_dim_list = torch.index_select(im_dim_list, 0, output[:,0].long())
 
 scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
 
-# output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2     # x and bx
-# output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2     # y and by
+output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2     # x and bx
+output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2     # y and by
 
 output[:, 1: 5] /= scaling_factor
 
 for i in range(output.shape[0]):
-    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[0,0])
-    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[0,1])
+    output[i, [1,3]] = torch.clamp(output[i, [1,3]], 0.0, im_dim_list[i,0])
+    output[i, [2,4]] = torch.clamp(output[i, [2,4]], 0.0, im_dim_list[i,1])
 
 color_load = time.time()
 fp = open('./pallete', 'rb')
 colors = pkl.load(fp)
 draw = time.time()
 
-imgs = list(map(lambda x,: write_(x, loaded_ims, color=colors[1]), output))
+imgs = list(map(lambda x,: write_(x, loaded_ims, colors=colors), output))
 det_names = pd.Series(imlist).apply(lambda x: "{}/det_{}".format(args.det, x.split("/")[-1]))
 list(map(cv2.imwrite, det_names, loaded_ims))
 end = time.time()
