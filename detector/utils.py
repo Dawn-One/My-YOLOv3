@@ -29,7 +29,8 @@ def predict_transfrom(prediction: torch.Tensor, inp_dim, anchors, num_classes: i
     """
     batch_size = prediction.size(0)
     stride = inp_dim // prediction.size(2)
-    grid_size = prediction.size(2)
+    # grid_size = prediction.size(2)
+    grid_size = inp_dim // stride
     bbox_attrs = 5 + num_classes
     num_anchors = len(anchors)
 
@@ -98,13 +99,13 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
     batch_size = prediction.size(0)
     write = 0
 
-    for idx in range(batch_size):
-        image_pred = prediction[idx]
+    for ind in range(batch_size):
+        image_pred = prediction[ind]
 
-        max_conf, max_conf_score = torch.max(image_pred[:, 5: 5+num_classes], 1)
+        max_conf, max_conf_score = torch.max(image_pred[:, 5: 5+num_classes], 1)    # each bounding box only predict a target
         max_conf = max_conf.float().unsqueeze(1)
         max_conf_score = max_conf_score.float().unsqueeze(1)
-        seq = (image_pred[:, :5], max_conf, max_conf_score)
+        seq = (image_pred[:, :5], max_conf, max_conf_score)     # merge tensors
         image_pred = torch.cat(seq, 1)
 
         non_zero_ind = torch.nonzero(image_pred[:, 4])
@@ -118,16 +119,16 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
 
         if image_pred_.shape[0] == 0:
             continue
-        img_classes = unique(image_pred_[:, -1])
+        img_classes = unique(image_pred_[:, -1])    # class that the image include
 
-        for cls in img_classes:
-            #get the detections with one particular class
-            cls_mask = image_pred_ * (image_pred_[:,-1] == cls).float().unsqueeze(1)
+        for cls in img_classes:     # go through each classes
+            # get the detections with one particular class, drop the other classes
+            cls_mask = image_pred_ * ((image_pred_[:,-1] == cls).float().unsqueeze(1))
             class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
             image_pred_class = image_pred_[class_mask_ind].view(-1,7)
 
-            #sort the detections such that the entry with the maximum objectness
-            #confidence is at the top
+            # sort the detections such that the entry with the maximum objectness
+            # confidence is at the top
             conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
             image_pred_class = image_pred_class[conf_sort_index]
             idx = image_pred_class.size(0)   #Number of detections
@@ -143,25 +144,25 @@ def write_results(prediction: torch.Tensor, confidence, num_classes, nms_conf=0.
                 except IndexError:
                     break
 
-                #Zero out all the detections that have IoU > treshhold
+                # Zero out all the detections that have IoU > treshhold
                 iou_mask = (ious < nms_conf).float().unsqueeze(1)
                 image_pred_class[i+1:] *= iou_mask       
 
-                #Remove the non-zero entries
+                # Remove the non-zero entries
                 non_zero_ind = torch.nonzero(image_pred_class[:,4]).squeeze()
                 image_pred_class = image_pred_class[non_zero_ind].view(-1,7)
 
-                batch_ind = image_pred_class.new_empty(image_pred_class.size(0), 1).fill_(idx)
-                seq = (batch_ind, image_pred_class)
+            batch_ind = image_pred_class.new_empty(image_pred_class.size(0), 1).fill_(ind)
+            seq = (batch_ind, image_pred_class)
 
-                if not write:
-                    output = torch.cat(seq, 1)
-                    write = True
-                else:
-                    out = torch.cat(seq, 1)
-                    output = torch.cat((output, out))
+            if not write:
+                output = torch.cat(seq, 1)
+                write = True
+            else:
+                out = torch.cat(seq, 1)
+                output = torch.cat((output, out))
 
-                return output
+        return output
 
 def unique(tensor: torch.Tensor):
     tensor_np = tensor.cpu().numpy()

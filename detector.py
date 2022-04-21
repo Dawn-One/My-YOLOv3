@@ -75,15 +75,15 @@ def prep_image(img, inp_dim):
     return img
 
 def write_(x, result, color):
-    c1 = tuple(x[1: 3].int())
-    c2 = tuple(x[3: 5].int())
-    img = result[int(x[0])]
-    cls = int(x[-1])
-    label = "{0}".format(classes[cls])
-    cv2.rectangle(img, c1, c2,color, 1)
+    c1 = tuple(x[1: 3].int())   # x and y
+    c2 = tuple(x[3: 5].int())   # bx and by
+    img = result[int(x[0])]     # define the image
+    cls = int(x[-1])            # define the classes
+    label = "{0}".format(classes[cls])      
+    cv2.rectangle(img, c1, c2, color, 1)
     t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
     c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
-    cv2.rectangle(img, c1, c2,color, -1)
+    cv2.rectangle(img, c1, c2, color, -1)
     cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1)
 
     return img
@@ -118,6 +118,7 @@ model.eval()
 
 read_dir = time.time()
 
+# imlist: a list consist of images' path
 try:
     imlist = [osp.join(osp.realpath('.'), image, img) for img in os.listdir(images)]
 except NotADirectoryError:
@@ -133,10 +134,10 @@ if not os.path.exists(args.det):
 load_batch = time.time()
 loaded_ims = [cv2.imread(x) for x in imlist]
 
-#PyTorch Variables for images
+# PyTorch Variables for images
 im_batches = list(map(prep_image, loaded_ims, [inp_dim for x in range(len(imlist))]))
 
-#List containing dimensions of original images
+# List containing dimensions of original images
 im_dim_list = [(x.shape[1], x.shape[0]) for x in loaded_ims]
 im_dim_list = torch.FloatTensor(im_dim_list).repeat(1,2)
 
@@ -195,8 +196,8 @@ for idx, batch in enumerate(im_batches):
 
 scaling_factor = torch.min(inp_dim/im_dim_list,1)[0].view(-1,1)
 
-output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2
-output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2
+# output[:,[1,3]] -= (inp_dim - scaling_factor*im_dim_list[:,0].view(-1,1))/2     # x and bx
+# output[:,[2,4]] -= (inp_dim - scaling_factor*im_dim_list[:,1].view(-1,1))/2     # y and by
 
 output[:, 1: 5] /= scaling_factor
 
@@ -209,8 +210,8 @@ fp = open('./pallete', 'rb')
 colors = pkl.load(fp)
 draw = time.time()
 
-list(map(lambda x,: write_(x, loaded_ims[0], color=colors[1]), output))
-det_names = pd.Series(imlist).apply(lambda x: "{}/det_{}".format(args.det,x.split("/")[-1]))
+imgs = list(map(lambda x,: write_(x, loaded_ims, color=colors[1]), output))
+det_names = pd.Series(imlist).apply(lambda x: "{}/det_{}".format(args.det, x.split("/")[-1]))
 list(map(cv2.imwrite, det_names, loaded_ims))
 end = time.time()
 
