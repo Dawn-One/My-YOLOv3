@@ -8,6 +8,7 @@
 - cfg
     - yolov3.cfg: DarkNet's architecture and YOLO v3's net information
 - yolov3.weights: YOLO v3's weights [Download Here](https://pjreddie.com/media/files/yolov3.weights)
+- video.py: object detect in video
 
 ## A Picture's Experience
 ### load the pictures
